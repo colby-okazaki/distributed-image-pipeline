@@ -1,19 +1,19 @@
 # Distributed Image Processing Pipeline — Todo List
 
 ## Setup / Local Dev
-- [ ] Scaffold FastAPI backend project structure
-- [ ] Scaffold React frontend project structure
-- [ ] Set up Docker Compose for local dev
-- [ ] Set up LocalStack to simulate S3 + SQS locally (avoid AWS cost during dev)
-- [ ] Design PostgreSQL schema: jobs, batch items, status, timestamps, result locations
+- [x] Scaffold FastAPI backend project structure
+- [x] Scaffold React frontend project structure
+- [x] Set up Docker Compose for local dev
+- [x] Set up LocalStack to simulate S3 + SQS locally (avoid AWS cost during dev)
+- [x] Design PostgreSQL schema: jobs, batch items, status, timestamps, result locations
 
 ## Backend — Core API
-- [ ] POST endpoint: create upload session for a batch
-- [ ] Generate presigned S3 upload URLs (do NOT proxy image bytes through FastAPI)
-- [ ] POST endpoint: confirm uploads completed, create job + batch-item records in PostgreSQL
-- [ ] Publish one SQS message per image job
-- [ ] GET endpoint: job/batch status (reads from PostgreSQL, Redis as cache in front)
-- [ ] GET endpoint: fetch/download processed results
+- [x] POST endpoint: create upload session for a batch
+- [x] Generate presigned S3 upload URLs (do NOT proxy image bytes through FastAPI)
+- [x] POST endpoint: confirm uploads completed, create job + batch-item records in PostgreSQL
+- [x] Publish one SQS message per image job
+- [x] GET endpoint: job/batch status (reads from PostgreSQL, Redis as cache in front)
+- [x] GET endpoint: fetch/download processed results
 
 ## Worker
 - [ ] Build worker process that pulls jobs from SQS
@@ -27,9 +27,9 @@
 ## Reliability
 - [ ] Add retry logic for failed jobs
 - [ ] Configure SQS visibility timeout correctly
-- [ ] Add dead-letter queue for jobs that repeatedly fail
+- [x] Add dead-letter queue for jobs that repeatedly fail (LocalStack: maxReceiveCount 3; still needed on real AWS)
 - [ ] Make processing idempotent (safe to reprocess without corrupting/duplicating results)
-- [ ] Add Redis caching for job-status lookups — cache only, PostgreSQL must remain correct source of truth if Redis is down/cleared
+- [x] Add Redis caching for job-status lookups — cache only, PostgreSQL must remain correct source of truth if Redis is down/cleared
 
 ## Frontend
 - [ ] Build upload UI (request presigned URLs, upload batch directly to S3)
