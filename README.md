@@ -2,7 +2,7 @@
 
 A batch image-processing system: users upload a batch of images, each image becomes an independent job on a queue, and a pool of workers processes them with OpenCV and writes results back to object storage. The focus is on reliability: no lost or duplicated results when workers crash mid-batch.
 
-> Status: the API is implemented. The worker's image processing and the frontend are still being built. See [TODO.md](TODO.md).
+> Status: the API and worker run end to end locally. The frontend and AWS deployment are still to come. See [TODO.md](TODO.md).
 
 ## Tech stack
 
@@ -49,6 +49,28 @@ Accepted image types: JPEG, PNG, WebP. Up to 500 files per batch. S3 keys are bu
 
 Batch status is derived from its jobs: `awaiting_upload` → `processing` → `done`, `partial_failure` or `failed`.
 
+## Worker
+
+Each worker long-polls SQS and handles one job at a time; run more workers to scale (`docker compose up --scale worker=4`). Per message:
+
+1. Claim the job in PostgreSQL (`processing`, attempts + 1). A job that is already finished is skipped and its message deleted, so duplicate deliveries are harmless.
+2. Download the source image from S3 and run the operation with OpenCV. `resize` shrinks the image to fit within `max_width` × `max_height`, keeps the aspect ratio, never upscales, and preserves PNG transparency.
+3. Write the result to S3 under the job's fixed result key.
+4. Mark the job `done` in PostgreSQL.
+5. Delete the SQS message.
+
+**Failure handling**
+
+| Situation | What happens |
+|---|---|
+| Worker crashes at any step | The message was not deleted, so SQS redelivers it after the visibility timeout. The rerun overwrites the same result key with identical bytes, so a crash between steps 3 and 4 cannot lose or duplicate a result. |
+| Transient error (S3, SQS or Postgres unavailable) | Message is retried with exponential backoff (5 s, 10 s, …) by shortening its visibility timeout. |
+| Still failing on the last attempt (3) | Job is marked `failed` in PostgreSQL; SQS then moves the message to the dead-letter queue. |
+| Bad input (corrupt image, missing source, unknown operation) | Job is marked `failed` with the reason and the message is deleted, since retrying cannot help. |
+| Malformed message | Left alone, so it ends up in the dead-letter queue. |
+| Long-running job | A heartbeat extends the message's visibility every 20 s so another worker does not pick it up. |
+| `SIGTERM` (deploy, scale down) | The worker finishes its current job before exiting. |
+
 ## Project layout
 
 ```
@@ -76,9 +98,19 @@ LocalStack creates the S3 buckets (with CORS for browser uploads) and the SQS qu
 
 On the host, Postgres listens on port 5434 and Redis on 6380, to avoid clashing with other local projects. Override with `POSTGRES_HOST_PORT` and `REDIS_HOST_PORT`.
 
-API smoke test (standard library only):
+### Tests
+
+Smoke tests use only the Python standard library and run against the Docker stack:
 
 ```bash
-docker compose up -d --wait postgres redis localstack api
-python3 scripts/smoke_test_api.py
+docker compose up -d --wait
+python3 scripts/smoke_test_api.py         # API flow: validation, uploads, confirm, error cases
+python3 scripts/smoke_test_pipeline.py 25 # full pipeline: 25 images + 1 corrupt, checks every result
+```
+
+Worker unit tests run inside the worker image:
+
+```bash
+docker compose run --rm --no-deps -v "$PWD/worker/tests:/app/tests" worker \
+  sh -c "pip install -q pytest && python -m pytest -q tests"
 ```
