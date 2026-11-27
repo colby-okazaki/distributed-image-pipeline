@@ -5,14 +5,18 @@ services:
       POSTGRES_USER: pipeline
       POSTGRES_PASSWORD: pipeline
       POSTGRES_DB: pipeline
-    ports: ["5432:5432"]
+    ports: ["${POSTGRES_HOST_PORT:-5434}:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pipeline"]
+      interval: 2s
+      retries: 30
 
   redis:
     image: redis:7
-    ports: ["6379:6379"]
+    ports: ["${REDIS_HOST_PORT:-6380}:6379"]
 
   localstack:
     image: localstack/localstack:3.8
@@ -21,6 +25,11 @@ services:
     ports: ["4566:4566"]
     volumes:
       - ./infra/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    healthcheck:
+      # Healthy only once the init script has created the buckets and queues.
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name pipeline-jobs >/dev/null 2>&1"]
+      interval: 2s
+      retries: 60
 
   api:
     build: ./backend
@@ -29,16 +38,22 @@ services:
       DATABASE_URL: postgresql://pipeline:pipeline@postgres:5432/pipeline
       REDIS_URL: redis://redis:6379/0
       AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_PUBLIC_ENDPOINT_URL: http://localhost:4566
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       JOBS_QUEUE_URL: http://localstack:4566/000000000000/pipeline-jobs
-    depends_on: [postgres, redis, localstack]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      localstack: { condition: service_healthy }
 
   worker:
     build: ./worker
     environment: *aws_env
-    depends_on: [postgres, localstack]
+    depends_on:
+      postgres: { condition: service_healthy }
+      localstack: { condition: service_healthy }
 
 volumes:
   pgdata:
