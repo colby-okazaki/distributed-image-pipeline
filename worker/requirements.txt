@@ -1,3 +1,4 @@
 boto3==1.35.90
 psycopg[binary]==3.2.3
 opencv-python-headless==4.10.0.84
+numpy==2.2.1

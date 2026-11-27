@@ -16,19 +16,19 @@
 - [x] GET endpoint: fetch/download processed results
 
 ## Worker
-- [ ] Build worker process that pulls jobs from SQS
-- [ ] Implement first OpenCV operation (e.g., resize)
+- [x] Build worker process that pulls jobs from SQS
+- [x] Implement first OpenCV operation (e.g., resize)
 - [ ] Implement second OpenCV operation (e.g., face/object detection) — optional/stretch
-- [ ] Write processed results back to S3
-- [ ] Update job status in PostgreSQL AFTER successful S3 result write
-- [ ] Delete/ack SQS message ONLY AFTER PostgreSQL update succeeds (strict ordering: S3 → Postgres → SQS ack)
-- [ ] Containerize worker with Docker
+- [x] Write processed results back to S3
+- [x] Update job status in PostgreSQL AFTER successful S3 result write
+- [x] Delete/ack SQS message ONLY AFTER PostgreSQL update succeeds (strict ordering: S3 → Postgres → SQS ack)
+- [x] Containerize worker with Docker
 
 ## Reliability
-- [ ] Add retry logic for failed jobs
-- [ ] Configure SQS visibility timeout correctly
+- [x] Add retry logic for failed jobs
+- [x] Configure SQS visibility timeout correctly
 - [x] Add dead-letter queue for jobs that repeatedly fail (LocalStack: maxReceiveCount 3; still needed on real AWS)
-- [ ] Make processing idempotent (safe to reprocess without corrupting/duplicating results)
+- [x] Make processing idempotent (safe to reprocess without corrupting/duplicating results)
 - [x] Add Redis caching for job-status lookups — cache only, PostgreSQL must remain correct source of truth if Redis is down/cleared
 
 ## Frontend
